@@ -2148,3 +2148,9 @@ zone-torrent.net
 zub.ru
 zvuk-b2b.com
 zvuk.com
+intuit.ru
+znanium.ru
+elibrary.ru
+e.lanbook.com
+security.lanbook.com
+surveys.yandex.ru
