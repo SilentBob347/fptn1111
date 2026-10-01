@@ -89,6 +89,12 @@ jobs:
             --push \
             --provenance=false \
             --sbom=false .
+      - name: Clean workspace
+        if: always()
+        run: |
+          docker run --rm -v "$PWD:/ws" -w /ws alpine \
+            chown -R "$(id -u):$(id -g)" . || true
+          git clean -ffdx || true
 
   build_ubuntu_arm64:
     runs-on: Ubuntu_ARM64_Desktop
@@ -318,35 +324,35 @@ jobs:
         target: [aarch64-armsr, aarch64-mediatek-filogic, armv7-ipq40xx, x86-64, mipsel_24kc-mt7621, mips_24kc-ath79]
         version: ['25.12.5', '24.10.7']
     steps:
+      - name: Fix workspace ownership
+        run: |
+          docker run --rm -v "$PWD:/ws" -w /ws alpine \
+            chown -R "$(id -u):$(id -g)" . || true
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
       - name: Set env
-        shell: powershell
         if: github.event_name == 'release'
         run: |
-          $releaseVersion = "${{ github.ref_name }}"
-          echo "RELEASE_VERSION=$releaseVersion" >> $env:GITHUB_ENV
-          echo "FPTN_VERSION=$releaseVersion" >> $env:GITHUB_ENV
+          echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+          echo "FPTN_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
       - name: Set dev version
-        shell: powershell
         if: github.event_name != 'release'
         run: |
-          echo "FPTN_VERSION=0.0.0" >> $env:GITHUB_ENV
-          Write-Output "Dev version: 0.0.0"
+          echo "FPTN_VERSION=0.0.0" >> $GITHUB_ENV
+          echo "Dev version: 0.0.0"
       - name: Build OpenWrt package
-        shell: powershell
         run: |
-          docker build `
-            --build-arg PKG_VERSION="$env:FPTN_VERSION" `
-            -t "fptn-openwrt-${{ matrix.target }}-${{ matrix.version }}" `
+          docker build \
+            --build-arg PKG_VERSION="$FPTN_VERSION" \
+            -t "fptn-openwrt-${{ matrix.target }}-${{ matrix.version }}" \
             -f "./deploy/openwrt/platforms/${{ matrix.target }}/${{ matrix.version }}/Dockerfile" .
       - name: Extract package
-        shell: powershell
         run: |
-          docker run --rm -v "$($PWD.Path):/dst" "fptn-openwrt-${{ matrix.target }}-${{ matrix.version }}" cp -av /out/. /dst/
+          docker run --rm "fptn-openwrt-${{ matrix.target }}-${{ matrix.version }}" \
+            tar -C /out -cf - . | tar --no-same-owner -xf -
       - name: Upload apk RELEASE
         if: github.event_name == 'release' && matrix.version == '25.12.5'
         uses: AButler/upload-release-assets@v3.0
@@ -367,6 +373,12 @@ jobs:
             *.apk
             *.ipk
           if-no-files-found: warn
+      - name: Clean workspace
+        if: always()
+        run: |
+          docker run --rm -v "$PWD:/ws" -w /ws alpine \
+            chown -R "$(id -u):$(id -g)" . || true
+          git clean -ffdx || true
 
   create_multiarch_manifest:
     needs: [build_ubuntu_x86_64, build_ubuntu_arm64]
